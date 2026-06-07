@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameLoader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .viewport {
+            height: calc(100vh - 280px);
+            min-height: 400px;
+            overflow-y: auto;
+            position: relative;
+        }
+        .spacer {
+            width: 100%;
+        }
+        .table-row-item {
+            position: absolute;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .table-row-item:hover {
+            background-color: #334155;
+        }
+        html:not(.dark) .table-row-item {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        html:not(.dark) .table-row-item:hover {
+            background-color: #f1f5f9;
+        }
+
+        .star {
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.1s;
+        }
+        .star:hover {
+            transform: scale(1.2);
+        }
+        .star.active, .star:hover {
+            color: #eab308;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        html.dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+
+<div class="container mx-auto p-4 max-w-7xl flex flex-col h-screen">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6 shrink-0">
+        <h1 class="text-3xl font-bold flex items-center gap-2">
+            <i class="ph-fill ph-chess-knight text-primary"></i> GameLoader
+        </h1>
+        <button id="themeToggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition">
+            <i class="ph-fill ph-sun text-2xl dark:hidden block text-yellow-500"></i>
+            <i class="ph-fill ph-moon text-2xl hidden dark:block text-blue-300"></i>
+        </button>
+    </div>
+
+    <!-- Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 shrink-0">
+        <!-- Local Import -->
+        <div class="p-4 rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm uppercase tracking-wider font-bold mb-2 text-gray-500 dark:text-gray-400">Local Files</h2>
+            <input type="file" id="fileInput" multiple webkitdirectory class="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100
+                dark:file:bg-gray-700 dark:file:text-blue-400 dark:hover:file:bg-gray-600
+                cursor-pointer transition
+              "/>
+        </div>
+
+        <!-- Lichess Import -->
+        <div class="p-4 rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm uppercase tracking-wider font-bold mb-2 text-gray-500 dark:text-gray-400">Lichess Study</h2>
+            <div class="flex gap-2">
+                <input type="text" id="lichessUrl" placeholder="https://lichess.org/study/..." class="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary transition">
+                <button id="importLichessBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 font-medium transition whitespace-nowrap shadow-sm">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="progressContainer" class="hidden mb-4 shrink-0">
+        <div class="flex justify-between text-sm mb-1 font-medium">
+            <span id="progressText" class="text-primary">Parsing games...</span>
+            <span id="progressPercent" class="text-primary">0%</span>
+        </div>
+        <div class="w-full bg-blue-100 rounded-full h-2 dark:bg-gray-800 overflow-hidden">
+            <div id="progressBar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Toolbar: Search & Info -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4 shrink-0">
+        <div class="relative w-full md:w-1/2">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
+            <input type="text" id="searchInput" placeholder="Search players, events, or moves (e.g. 1. e4 c5)..." class="w-full pl-10 pr-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition">
+        </div>
+        <div class="text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
+            <span id="gameCount" class="font-bold text-gray-900 dark:text-white">0</span> games
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="flex-1 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gray-100 dark:bg-gray-900 flex text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-3 shrink-0 border-b border-gray-200 dark:border-gray-700">
+            <div class="w-2/12 px-2">White</div>
+            <div class="w-2/12 px-2">Black</div>
+            <div class="w-1/12 px-2">Result</div>
+            <div class="w-3/12 px-2">Event</div>
+            <div class="w-2/12 px-2">Date</div>
+            <div class="w-2/12 px-2 flex items-center cursor-pointer select-none hover:text-primary transition" id="sortRatingBtn">
+                Rating <i class="ph-bold ph-sort-ascending ml-1 hidden" id="sortIcon"></i>
+            </div>
+        </div>
+
+        <!-- Virtual Scroller Viewport -->
+        <div id="viewport" class="flex-1 overflow-y-auto relative bg-white dark:bg-gray-800">
+            <div id="spacer" class="w-full"></div>
+            <div id="rowContainer"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-2xl transition-all duration-300 translate-y-20 opacity-0 flex items-center gap-2 z-50 font-medium">
+        <i class="ph-fill ph-check-circle text-green-400 dark:text-green-600 text-xl"></i>
+        <span id="toastMsg">Copied to clipboard!</span>
+    </div>
+</div>
+
+<script>
+    // Theme logic
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    themeToggle.addEventListener('click', () => {
+        if (htmlEl.classList.contains('dark')) {
+            htmlEl.classList.remove('dark');
+            localStorage.theme = 'light';
+        } else {
+            htmlEl.classList.add('dark');
+            localStorage.theme = 'dark';
+        }
+    });
+    if (localStorage.theme === 'light') {
+        htmlEl.classList.remove('dark');
+    }
+
+    // State
+    let allGames = [];
+    let filteredGames = [];
+    let gameMap = new Map();
+    let currentSortRating = 0;
+
+    // Virtual Scroll State
+    const ROW_HEIGHT = 48;
+    const viewport = document.getElementById('viewport');
+    const spacer = document.getElementById('spacer');
+    const rowContainer = document.getElementById('rowContainer');
+    
+    function renderVirtualScroll() {
+        const scrollTop = viewport.scrollTop;
+        const viewportHeight = viewport.clientHeight;
+        
+        const totalRows = filteredGames.length;
+        spacer.style.height = \`\${totalRows * ROW_HEIGHT}px\`;
+        
+        const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5);
+        const endIndex = Math.min(totalRows - 1, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + 5);
+        
+        rowContainer.innerHTML = '';
+        
+        if (totalRows === 0) {
+            rowContainer.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-500 dark:text-gray-400 italic">No games found.</div>';
+            return;
+        }
+        
+        for (let i = startIndex; i <= endIndex; i++) {
+            const game = filteredGames[i];
+            const row = document.createElement('div');
+            row.className = 'table-row-item px-3 flex text-sm text-gray-800 dark:text-gray-200';
+            row.style.height = \`\${ROW_HEIGHT}px\`;
+            row.style.top = \`\${i * ROW_HEIGHT}px\`;
+            
+            row.addEventListener('click', (e) => {
+                if(e.target.closest('.stars-container')) return;
+                navigator.clipboard.writeText(game.rawPgn).then(() => {
+                    showToast('Raw PGN copied to clipboard!');
+                });
+            });
+
+            const savedRating = parseInt(localStorage.getItem('rating_' + game.hash) || '0', 10);
+            game.rating = savedRating;
+
+            row.innerHTML = \`
+                <div class="w-2/12 truncate px-2 font-medium" title="\${game.White}">\${game.White}</div>
+                <div class="w-2/12 truncate px-2 font-medium" title="\${game.Black}">\${game.Black}</div>
+                <div class="w-1/12 truncate px-2 text-gray-500 dark:text-gray-400">\${game.Result}</div>
+                <div class="w-3/12 truncate px-2" title="\${game.Event}">\${game.Event}</div>
+                <div class="w-2/12 truncate px-2 text-gray-500 dark:text-gray-400">\${game.Date}</div>
+                <div class="w-2/12 px-2 stars-container flex items-center gap-1" data-hash="\${game.hash}">
+                    \${[1,2,3,4,5].map(star => \`
+                        <i class="ph-fill ph-star star text-lg \${star <= savedRating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}" data-val="\${star}"></i>
+                    \`).join('')}
+                </div>
+            \`;
+            
+            const stars = row.querySelectorAll('.star');
+            stars.forEach(starEl => {
+                starEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const val = parseInt(starEl.dataset.val, 10);
+                    const hash = game.hash;
+                    if (game.rating === val) {
+                        game.rating = 0;
+                        localStorage.removeItem('rating_' + hash);
+                    } else {
+                        game.rating = val;
+                        localStorage.setItem('rating_' + hash, val);
+                    }
+                    renderVirtualScroll(); // Quick re-render
+                });
+            });
+
+            rowContainer.appendChild(row);
+        }
+    }
+
+    viewport.addEventListener('scroll', () => {
+        requestAnimationFrame(renderVirtualScroll);
+    });
+
+    window.addEventListener('resize', () => {
+        requestAnimationFrame(renderVirtualScroll);
+    });
+
+    const workerCode = \`
+        const cyrb53 = (str, seed = 0) => {
+            let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+            for(let i = 0, ch; i < str.length; i++) {
+                ch = str.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+            h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+            h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+        };
+
+        self.onmessage = function(e) {
+            const { text, fileIndex, totalFiles } = e.data;
+            
+            let parts = text.split(/\\\\[Event \\"/);
+            let parsedGames = [];
+            
+            for(let i = 0; i < parts.length; i++) {
+                if(i === 0 && parts[i].trim() === '') continue;
+                
+                let chunk = parts[i].trim();
+                if(!chunk) continue;
+                
+                chunk = '[Event "' + chunk;
+
+                const getHeader = (name) => {
+                    const match = chunk.match(new RegExp('\\\\\\\\[' + name + ' \\\\"(.*?)\\\\"\\\\]'));
+                    return match ? match[1] : '?';
+                };
+
+                const White = getHeader('White');
+                const Black = getHeader('Black');
+                const Result = getHeader('Result');
+                const Date = getHeader('Date');
+                const Event = getHeader('Event');
+
+                const lastHeaderClose = chunk.lastIndexOf(']');
+                let MoveText = '';
+                if (lastHeaderClose !== -1) {
+                    MoveText = chunk.substring(lastHeaderClose + 1).trim();
+                }
+
+                const hashStr = White + '|' + Black + '|' + Date + '|' + Event + '|' + Result;
+                const hash = cyrb53(hashStr).toString(16);
+
+                parsedGames.push({
+                    White, Black, Result, Date, Event,
+                    MoveText,
+                    rawPgn: chunk,
+                    hash
+                });
+
+                if (i % 5000 === 0 && i > 0) {
+                    self.postMessage({ type: 'progress', progress: (i / parts.length) * 100 });
+                }
+            }
+            
+            self.postMessage({ type: 'done', games: parsedGames, fileIndex, totalFiles });
+        };
+    \`;
+
+    const blob = new Blob([workerCode], {type: 'application/javascript'});
+    let worker;
+
+    function parseGamesText(text, fileIndex, totalFiles) {
+        return new Promise((resolve, reject) => {
+            if(worker) worker.terminate();
+            worker = new Worker(URL.createObjectURL(blob));
+            
+            worker.onmessage = (e) => {
+                if(e.data.type === 'progress') {
+                    updateProgress(e.data.progress, fileIndex, totalFiles);
+                } else if(e.data.type === 'done') {
+                    resolve(e.data.games);
+                }
+            };
+            
+            worker.onerror = (err) => reject(err);
+            
+            worker.postMessage({ text, fileIndex, totalFiles });
+        });
+    }
+
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const progressPercent = document.getElementById('progressPercent');
+
+    function updateProgress(percent, fileIndex, totalFiles) {
+        progressContainer.classList.remove('hidden');
+        progressBar.style.width = percent + '%';
+        progressPercent.textContent = Math.round(percent) + '%';
+        if(totalFiles > 1) {
+            progressText.textContent = \`Parsing file \${fileIndex + 1} of \${totalFiles}...\`;
+        } else {
+            progressText.textContent = 'Parsing games...';
+        }
+    }
+
+    function hideProgress() {
+        setTimeout(() => {
+            progressContainer.classList.add('hidden');
+            progressBar.style.width = '0%';
+        }, 500); // slight delay for visual completion
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toastMsg').textContent = msg;
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        setTimeout(() => {
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+    }
+
+    function updateDataAndRender() {
+        filteredGames = Array.from(gameMap.values());
+        document.getElementById('gameCount').textContent = filteredGames.length;
+        applySearchAndSort();
+    }
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (!files.length) return;
+        
+        progressContainer.classList.remove('hidden');
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!file.name.toLowerCase().endsWith('.pgn')) continue;
+            
+            const text = await file.text();
+            try {
+                updateProgress(0, i, files.length);
+                const parsed = await parseGamesText(text, i, files.length);
+                parsed.forEach(g => {
+                    if(!gameMap.has(g.hash)) {
+                        gameMap.set(g.hash, g);
+                    }
+                });
+            } catch (err) {
+                console.error("Error parsing file", file.name, err);
+            }
+        }
+        
+        hideProgress();
+        updateDataAndRender();
+        e.target.value = ''; // reset input
+    });
+
+    document.getElementById('importLichessBtn').addEventListener('click', async () => {
+        const urlInput = document.getElementById('lichessUrl').value.trim();
+        if(!urlInput) return;
+        
+        const match = urlInput.match(/study\\/([a-zA-Z0-9]+)/);
+        if(!match) {
+            alert("Invalid Lichess study URL");
+            return;
+        }
+        
+        const studyId = match[1];
+        const apiUrl = \`https://lichess.org/api/study/\${studyId}.pgn\`;
+        
+        progressContainer.classList.remove('hidden');
+        progressText.textContent = "Downloading from Lichess...";
+        progressBar.style.width = '50%';
+        progressPercent.textContent = '';
+
+        try {
+            const res = await fetch(apiUrl);
+            if(!res.ok) throw new Error("Failed to fetch study");
+            const text = await res.text();
+            
+            progressText.textContent = "Parsing Lichess study...";
+            const parsed = await parseGamesText(text, 0, 1);
+            parsed.forEach(g => {
+                if(!gameMap.has(g.hash)) {
+                    gameMap.set(g.hash, g);
+                }
+            });
+            
+            hideProgress();
+            updateDataAndRender();
+            document.getElementById('lichessUrl').value = ''; // reset
+        } catch(err) {
+            console.error(err);
+            alert("Error fetching Lichess study: " + err.message);
+            hideProgress();
+        }
+    });
+
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            applySearchAndSort();
+        }, 150); // debounce search
+    });
+
+    document.getElementById('sortRatingBtn').addEventListener('click', () => {
+        const icon = document.getElementById('sortIcon');
+        icon.classList.remove('hidden', 'ph-sort-ascending', 'ph-sort-descending');
+        
+        if (currentSortRating === 0) {
+            currentSortRating = 1; // Descending
+            icon.classList.add('ph-sort-descending');
+            icon.classList.remove('hidden');
+        } else if (currentSortRating === 1) {
+            currentSortRating = -1; // Ascending
+            icon.classList.add('ph-sort-ascending');
+            icon.classList.remove('hidden');
+        } else {
+            currentSortRating = 0; // None
+        }
+        
+        applySearchAndSort();
+    });
+
+    function applySearchAndSort() {
+        const query = searchInput.value.toLowerCase();
+        let arr = Array.from(gameMap.values());
+        
+        if (query) {
+            arr = arr.filter(g => {
+                return g.White.toLowerCase().includes(query) ||
+                       g.Black.toLowerCase().includes(query) ||
+                       g.Event.toLowerCase().includes(query) ||
+                       g.MoveText.toLowerCase().includes(query);
+            });
+        }
+        
+        if (currentSortRating !== 0) {
+            arr.sort((a, b) => {
+                const ratingA = parseInt(localStorage.getItem('rating_' + a.hash) || '0', 10);
+                const ratingB = parseInt(localStorage.getItem('rating_' + b.hash) || '0', 10);
+                if (currentSortRating === 1) {
+                    return ratingB - ratingA;
+                } else {
+                    return ratingA - ratingB;
+                }
+            });
+        }
+        
+        filteredGames = arr;
+        document.getElementById('gameCount').textContent = filteredGames.length;
+        
+        viewport.scrollTop = 0;
+        renderVirtualScroll();
+    }
+
+    // Initial render
+    renderVirtualScroll();
+
+</script>
+</body>
+</html>
