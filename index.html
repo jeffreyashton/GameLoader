@@ -78,16 +78,15 @@
             background: #475569;
         }
 
-        /* Highlighted row */
         .row-active {
-            background-color: #1e3a8a !important; /* blue-900 */
+            background-color: #1e3a8a !important; 
         }
         html:not(.dark) .row-active {
-            background-color: #dbeafe !important; /* blue-100 */
+            background-color: #dbeafe !important; 
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200 relative">
 
 <div class="container mx-auto p-4 max-w-7xl flex flex-col h-screen">
     <!-- Header -->
@@ -144,17 +143,20 @@
             <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
             <input type="text" id="searchInput" placeholder="Search players, events, or moves (e.g. 1. e4 c5)..." class="w-full pl-10 pr-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition">
         </div>
-        <div class="text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
-            <span id="gameCount" class="font-bold text-gray-900 dark:text-white">0</span> games
+        <div class="flex items-center gap-3">
+            <button id="btnTournament" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-bold transition shadow-sm flex items-center gap-2">
+                <i class="ph-bold ph-trophy"></i> Tournament Mode
+            </button>
+            <div class="text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-800 px-4 py-2 rounded-lg shadow-inner">
+                <span id="gameCount" class="font-bold text-gray-900 dark:text-white">0</span> games
+            </div>
         </div>
     </div>
 
     <!-- Main Content Area (Split Screen) -->
     <div class="flex-1 flex flex-col md:flex-row min-h-0 gap-4 overflow-hidden">
-        
-        <!-- Data Table (Left Panel) -->
+        <!-- Data Table -->
         <div class="flex-1 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
-            <!-- Header -->
             <div class="bg-gray-100 dark:bg-gray-900 flex text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-3 shrink-0 border-b border-gray-200 dark:border-gray-700">
                 <div class="w-2/12 px-2">White</div>
                 <div class="w-2/12 px-2">Black</div>
@@ -165,47 +167,91 @@
                     Rating <i class="ph-bold ph-sort-ascending ml-1 hidden" id="sortIcon"></i>
                 </div>
             </div>
-
-            <!-- Virtual Scroller Viewport -->
             <div id="viewport" class="flex-1 overflow-y-auto relative bg-white dark:bg-gray-800">
                 <div id="spacer" class="w-full"></div>
                 <div id="rowContainer"></div>
             </div>
         </div>
 
-        <!-- Preview Board (Right Panel) -->
+        <!-- Preview Board -->
         <div id="previewPanel" class="hidden w-full md:w-1/3 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-            <!-- Header -->
             <div class="bg-gray-100 dark:bg-gray-900 p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center shrink-0">
                 <div class="truncate text-sm font-bold text-gray-800 dark:text-gray-200 pr-2">
                     <span id="previewWhite">White</span> vs <span id="previewBlack">Black</span>
                 </div>
                 <div class="text-xs font-bold text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded whitespace-nowrap" id="previewResult">1-0</div>
             </div>
-            
-            <!-- Board Area -->
             <div class="p-4 flex-1 flex flex-col items-center overflow-y-auto">
                 <chess-board id="previewBoard" class="w-full max-w-sm"></chess-board>
-                
-                <!-- Controls -->
                 <div class="flex gap-2 mt-6">
                     <button id="btnStart" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Start (Shift+Left)"><i class="ph-bold ph-caret-double-left text-xl"></i></button>
                     <button id="btnPrev" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Previous (Left Arrow)"><i class="ph-bold ph-caret-left text-xl"></i></button>
                     <button id="btnNext" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Next (Right Arrow)"><i class="ph-bold ph-caret-right text-xl"></i></button>
                     <button id="btnEnd" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="End (Shift+Right)"><i class="ph-bold ph-caret-double-right text-xl"></i></button>
                 </div>
-
-                <!-- Copy Action -->
                 <button id="btnCopyPgn" class="mt-6 w-full max-w-sm flex justify-center items-center gap-2 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-sm">
                     <i class="ph-bold ph-copy text-lg"></i> Copy Raw PGN
                 </button>
             </div>
         </div>
+    </div>
 
+    <!-- Tournament Modal -->
+    <div id="tournamentModal" class="fixed inset-0 z-50 hidden bg-gray-100 dark:bg-black flex-col">
+        <!-- Header -->
+        <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-gray-900 shadow-sm shrink-0">
+            <h2 class="text-2xl font-black flex items-center gap-2 text-yellow-500"><i class="ph-fill ph-trophy"></i> Tournament Mode</h2>
+            <div class="text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full text-sm">
+                <span id="unrankedCount">0</span> unranked games left
+            </div>
+            <button id="btnCloseTournament" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition text-gray-500">
+                <i class="ph-bold ph-x text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Boards Area -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col md:flex-row gap-8 items-center justify-center relative">
+            
+            <!-- VS Badge -->
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-yellow-500 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-xl z-10 border-4 border-white dark:border-gray-900 hidden md:flex">
+                VS
+            </div>
+
+            <!-- Player A (Left) -->
+            <div class="flex-1 w-full max-w-md bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex flex-col items-center">
+                <h3 class="text-xl font-black mb-1 truncate w-full text-center text-gray-800 dark:text-gray-100" id="tourneyWhiteA">White vs Black</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 truncate max-w-full" id="tourneyEventA">Event</p>
+                <chess-board id="boardA" class="w-full cursor-pointer rounded overflow-hidden shadow-inner"></chess-board>
+                <div class="flex gap-3 mt-6 w-full">
+                    <button id="btnAutoA" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition flex justify-center items-center gap-2 border border-gray-200 dark:border-gray-700">
+                        <i class="ph-fill ph-play text-xl" id="iconAutoA"></i> <span id="textAutoA">Autoplay</span>
+                    </button>
+                    <button id="btnWinA" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition flex justify-center items-center gap-2 shadow-md">
+                        <i class="ph-fill ph-star text-xl"></i> Winner
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player B (Right) -->
+            <div class="flex-1 w-full max-w-md bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex flex-col items-center">
+                <h3 class="text-xl font-black mb-1 truncate w-full text-center text-gray-800 dark:text-gray-100" id="tourneyWhiteB">White vs Black</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 truncate max-w-full" id="tourneyEventB">Event</p>
+                <chess-board id="boardB" class="w-full cursor-pointer rounded overflow-hidden shadow-inner"></chess-board>
+                <div class="flex gap-3 mt-6 w-full">
+                    <button id="btnAutoB" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition flex justify-center items-center gap-2 border border-gray-200 dark:border-gray-700">
+                        <i class="ph-fill ph-play text-xl" id="iconAutoB"></i> <span id="textAutoB">Autoplay</span>
+                    </button>
+                    <button id="btnWinB" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition flex justify-center items-center gap-2 shadow-md">
+                        <i class="ph-fill ph-star text-xl"></i> Winner
+                    </button>
+                </div>
+            </div>
+
+        </div>
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-2xl transition-all duration-300 translate-y-20 opacity-0 flex items-center gap-2 z-50 font-medium">
+    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-2xl transition-all duration-300 translate-y-20 opacity-0 flex items-center gap-2 z-[60] font-medium">
         <i class="ph-fill ph-check-circle text-green-400 dark:text-green-600 text-xl"></i>
         <span id="toastMsg">Copied to clipboard!</span>
     </div>
@@ -327,7 +373,7 @@
     // Preview Logic
     function loadPreview(game) {
         document.getElementById('previewPanel').classList.remove('hidden');
-        document.getElementById('previewPanel').classList.add('flex'); // override md:hidden behavior if any
+        document.getElementById('previewPanel').classList.add('flex');
         document.getElementById('previewWhite').textContent = game.White;
         document.getElementById('previewBlack').textContent = game.Black;
         document.getElementById('previewResult').textContent = game.Result;
@@ -338,7 +384,6 @@
         } else if (game.MoveText && previewChess.load_pgn(game.MoveText)) {
              moveHistory = previewChess.history();
         } else {
-            // fallback if strictly broken
             moveHistory = [];
         }
         
@@ -386,8 +431,10 @@
 
     // Keyboard Navigation
     document.addEventListener('keydown', (e) => {
-        // Ignore if user is typing in search
         if(e.target.tagName === 'INPUT') return;
+        
+        // Disable keyboard nav if tournament modal is open
+        if(!document.getElementById('tournamentModal').classList.contains('hidden')) return;
 
         if (!document.getElementById('previewPanel').classList.contains('hidden')) {
             if (e.key === 'ArrowLeft') {
@@ -404,7 +451,6 @@
             if (activeGameIndex > 0) {
                 activeGameIndex--;
                 loadPreview(filteredGames[activeGameIndex]);
-                // Ensure row is in view
                 const rowTop = activeGameIndex * ROW_HEIGHT;
                 if (rowTop < viewport.scrollTop) {
                     viewport.scrollTop = rowTop;
@@ -416,7 +462,6 @@
             if (activeGameIndex < filteredGames.length - 1) {
                 activeGameIndex++;
                 loadPreview(filteredGames[activeGameIndex]);
-                // Ensure row is in view
                 const rowBottom = (activeGameIndex + 1) * ROW_HEIGHT;
                 if (rowBottom > viewport.scrollTop + viewport.clientHeight) {
                     viewport.scrollTop = rowBottom - viewport.clientHeight;
@@ -426,6 +471,164 @@
         }
     });
 
+    // TOURNAMENT LOGIC
+    let tourneyGameA = null;
+    let tourneyGameB = null;
+    let tourneyChessA = new Chess();
+    let tourneyChessB = new Chess();
+    let historyA = [];
+    let historyB = [];
+    let indexA = -1;
+    let indexB = -1;
+    let intervalA = null;
+    let intervalB = null;
+
+    document.getElementById('btnTournament').addEventListener('click', () => {
+        startTournamentRound();
+    });
+
+    document.getElementById('btnCloseTournament').addEventListener('click', () => {
+        stopAuto('A');
+        stopAuto('B');
+        document.getElementById('tournamentModal').classList.add('hidden');
+        document.getElementById('tournamentModal').classList.remove('flex');
+        updateDataAndRender(); 
+    });
+
+    function startTournamentRound() {
+        stopAuto('A');
+        stopAuto('B');
+        
+        let unranked = Array.from(gameMap.values()).filter(g => {
+            let r = parseInt(localStorage.getItem('rating_' + g.hash) || '0', 10);
+            return r === 0;
+        });
+
+        document.getElementById('unrankedCount').textContent = unranked.length;
+
+        if (unranked.length < 2) {
+            alert("You need at least 2 unranked (0-star) games loaded to play Tournament Mode!");
+            document.getElementById('tournamentModal').classList.add('hidden');
+            document.getElementById('tournamentModal').classList.remove('flex');
+            return;
+        }
+
+        const r1 = Math.floor(Math.random() * unranked.length);
+        let r2 = Math.floor(Math.random() * unranked.length);
+        while (r1 === r2) r2 = Math.floor(Math.random() * unranked.length);
+
+        tourneyGameA = unranked[r1];
+        tourneyGameB = unranked[r2];
+
+        // Setup A
+        document.getElementById('tourneyWhiteA').textContent = \`\${tourneyGameA.White} vs \${tourneyGameA.Black}\`;
+        document.getElementById('tourneyEventA').textContent = tourneyGameA.Event || 'Unknown Event';
+        tourneyChessA.reset();
+        if (tourneyChessA.load_pgn(tourneyGameA.rawPgn) || (tourneyGameA.MoveText && tourneyChessA.load_pgn(tourneyGameA.MoveText))) {
+            historyA = tourneyChessA.history();
+        } else { historyA = []; }
+        tourneyChessA.reset();
+        indexA = -1;
+        document.getElementById('boardA').setPosition(tourneyChessA.fen());
+
+        // Setup B
+        document.getElementById('tourneyWhiteB').textContent = \`\${tourneyGameB.White} vs \${tourneyGameB.Black}\`;
+        document.getElementById('tourneyEventB').textContent = tourneyGameB.Event || 'Unknown Event';
+        tourneyChessB.reset();
+        if (tourneyChessB.load_pgn(tourneyGameB.rawPgn) || (tourneyGameB.MoveText && tourneyChessB.load_pgn(tourneyGameB.MoveText))) {
+            historyB = tourneyChessB.history();
+        } else { historyB = []; }
+        tourneyChessB.reset();
+        indexB = -1;
+        document.getElementById('boardB').setPosition(tourneyChessB.fen());
+
+        document.getElementById('tournamentModal').classList.remove('hidden');
+        document.getElementById('tournamentModal').classList.add('flex');
+    }
+
+    function toggleAuto(side) {
+        if (side === 'A') {
+            if (intervalA) stopAuto('A');
+            else startAuto('A');
+        } else {
+            if (intervalB) stopAuto('B');
+            else startAuto('B');
+        }
+    }
+
+    function startAuto(side) {
+        if (side === 'A') {
+            document.getElementById('iconAutoA').classList.replace('ph-play', 'ph-pause');
+            document.getElementById('textAutoA').textContent = 'Pause';
+            intervalA = setInterval(() => {
+                if (indexA < historyA.length - 1) {
+                    indexA++;
+                    tourneyChessA.move(historyA[indexA]);
+                    document.getElementById('boardA').setPosition(tourneyChessA.fen());
+                } else {
+                    stopAuto('A');
+                }
+            }, 200);
+        } else {
+            document.getElementById('iconAutoB').classList.replace('ph-play', 'ph-pause');
+            document.getElementById('textAutoB').textContent = 'Pause';
+            intervalB = setInterval(() => {
+                if (indexB < historyB.length - 1) {
+                    indexB++;
+                    tourneyChessB.move(historyB[indexB]);
+                    document.getElementById('boardB').setPosition(tourneyChessB.fen());
+                } else {
+                    stopAuto('B');
+                }
+            }, 200);
+        }
+    }
+
+    function stopAuto(side) {
+        if (side === 'A') {
+            clearInterval(intervalA);
+            intervalA = null;
+            document.getElementById('iconAutoA').classList.replace('ph-pause', 'ph-play');
+            document.getElementById('textAutoA').textContent = 'Autoplay';
+        } else {
+            clearInterval(intervalB);
+            intervalB = null;
+            document.getElementById('iconAutoB').classList.replace('ph-pause', 'ph-play');
+            document.getElementById('textAutoB').textContent = 'Autoplay';
+        }
+    }
+
+    document.getElementById('boardA').addEventListener('click', () => toggleAuto('A'));
+    document.getElementById('boardB').addEventListener('click', () => toggleAuto('B'));
+    document.getElementById('btnAutoA').addEventListener('click', () => toggleAuto('A'));
+    document.getElementById('btnAutoB').addEventListener('click', () => toggleAuto('B'));
+
+    function selectWinner(winnerSide) {
+        if (!tourneyGameA || !tourneyGameB) return;
+        
+        const hashA = tourneyGameA.hash;
+        const hashB = tourneyGameB.hash;
+        
+        if (winnerSide === 'A') {
+            localStorage.setItem('rating_' + hashA, 4);
+            localStorage.setItem('rating_' + hashB, 2);
+            tourneyGameA.rating = 4;
+            tourneyGameB.rating = 2;
+        } else {
+            localStorage.setItem('rating_' + hashB, 4);
+            localStorage.setItem('rating_' + hashA, 2);
+            tourneyGameB.rating = 4;
+            tourneyGameA.rating = 2;
+        }
+
+        showToast(\`Ranked! Winner got 4 stars, loser got 2 stars.\`);
+        startTournamentRound();
+    }
+
+    document.getElementById('btnWinA').addEventListener('click', () => selectWinner('A'));
+    document.getElementById('btnWinB').addEventListener('click', () => selectWinner('B'));
+
+    // PGN Parsing Web Worker
     const workerCode = \`
         const cyrb53 = (str, seed = 0) => {
             let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -533,7 +736,7 @@
         setTimeout(() => {
             progressContainer.classList.add('hidden');
             progressBar.style.width = '0%';
-        }, 500); // slight delay for visual completion
+        }, 500);
     }
 
     function showToast(msg) {
@@ -579,7 +782,7 @@
         
         hideProgress();
         updateDataAndRender();
-        e.target.value = ''; // reset input
+        e.target.value = ''; 
     });
 
     document.getElementById('importLichessBtn').addEventListener('click', async () => {
@@ -615,7 +818,7 @@
             
             hideProgress();
             updateDataAndRender();
-            document.getElementById('lichessUrl').value = ''; // reset
+            document.getElementById('lichessUrl').value = ''; 
         } catch(err) {
             console.error(err);
             alert("Error fetching Lichess study: " + err.message);
@@ -629,7 +832,7 @@
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             applySearchAndSort();
-        }, 150); // debounce search
+        }, 150); 
     });
 
     document.getElementById('sortRatingBtn').addEventListener('click', () => {
@@ -637,15 +840,15 @@
         icon.classList.remove('hidden', 'ph-sort-ascending', 'ph-sort-descending');
         
         if (currentSortRating === 0) {
-            currentSortRating = 1; // Descending
+            currentSortRating = 1; 
             icon.classList.add('ph-sort-descending');
             icon.classList.remove('hidden');
         } else if (currentSortRating === 1) {
-            currentSortRating = -1; // Ascending
+            currentSortRating = -1; 
             icon.classList.add('ph-sort-ascending');
             icon.classList.remove('hidden');
         } else {
-            currentSortRating = 0; // None
+            currentSortRating = 0; 
         }
         
         applySearchAndSort();
