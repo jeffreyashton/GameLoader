@@ -1,1 +1,15 @@
-{"projects": {"default": "pandapuzzles-b7ac1"}}
+{
+  "projects": {
+    "default": "pandapuzzles-b7ac1"
+  },
+  "targets": {
+    "pandapuzzles-b7ac1": {
+      "hosting": {
+        "gameloader": [
+          "gameloader-app"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

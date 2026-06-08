@@ -6,6 +6,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "target": "gameloader",
     "public": "public",
     "ignore": [
       "firebase.json",
