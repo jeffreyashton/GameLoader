@@ -1414,16 +1414,30 @@
         progressContainer.classList.remove('hidden');
         progressText.textContent = "Uploading to Cloud Storage...";
         progressBar.style.width = '10%';
-        progressPercent.textContent = '';
+        progressPercent.textContent = '10%';
         
         const sRef = window.storageRef(window.firebaseStorage, `users/${currentUser.uid}/pgns/${file.name}`);
         try {
             await window.uploadBytesResumable(sRef, file);
-            progressText.textContent = "Upload Complete!";
+            progressText.textContent = "Upload Complete! Parsing locally...";
+            progressBar.style.width = '50%';
+            progressPercent.textContent = '50%';
+            
+            const text = await file.text();
+            const parsed = await parseGamesText(text, 0, 1);
+            parsed.forEach(addGameToMap);
+            
+            updateDataAndRender();
+            await autoSaveToCloud();
+            
+            progressText.textContent = "Sync Complete!";
             progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
             hideProgress();
-        } catch(e) {
-            alert("Upload failed: " + e.message);
+            showToast("Games synced to cloud successfully!");
+        } catch(err) {
+            console.error(err);
+            alert("Upload/sync failed: " + err.message);
             hideProgress();
         }
         e.target.value = '';
@@ -1434,7 +1448,7 @@
         progressContainer.classList.remove('hidden');
         progressText.textContent = "Listing Cloud PGNs...";
         progressBar.style.width = '10%';
-        progressPercent.textContent = '';
+        progressPercent.textContent = '10%';
         
         try {
             const listRef = window.storageRef(window.firebaseStorage, `users/${currentUser.uid}/pgns`);
@@ -1446,20 +1460,51 @@
                 hideProgress();
                 return;
             }
-            
-            for(let i=0; i<res.items.length; i++) {
-                const itemRef = res.items[i];
-                progressText.textContent = `Downloading ${itemRef.name}...`;
-                progressBar.style.width = Math.round((i/res.items.length)*100) + '%';
+
+            const allGamesItem = res.items.find(item => item.name === 'all_games.pgn');
+            if (allGamesItem) {
+                // Optimized path: download and parse ONLY the compiled master list
+                progressText.textContent = "Downloading master game list...";
+                progressBar.style.width = '50%';
+                progressPercent.textContent = '50%';
                 
-                const url = await window.getDownloadURL(itemRef);
+                const url = await window.getDownloadURL(allGamesItem);
                 const fetchRes = await fetch(url);
                 const text = await fetchRes.text();
                 
-                progressText.textContent = `Parsing ${itemRef.name}...`;
-                const parsed = await parseGamesText(text, i, res.items.length);
+                progressText.textContent = "Parsing master list...";
+                progressBar.style.width = '75%';
+                progressPercent.textContent = '75%';
+                
+                const parsed = await parseGamesText(text, 0, 1);
                 parsed.forEach(addGameToMap);
+            } else {
+                // Fallback path: download all files in parallel
+                progressText.textContent = `Downloading ${res.items.length} files...`;
+                progressBar.style.width = '30%';
+                progressPercent.textContent = '30%';
+                
+                const downloadPromises = res.items.map(async (itemRef) => {
+                    const url = await window.getDownloadURL(itemRef);
+                    const fetchRes = await fetch(url);
+                    const text = await fetchRes.text();
+                    return { name: itemRef.name, text };
+                });
+                
+                const filesData = await Promise.all(downloadPromises);
+                
+                for(let i=0; i<filesData.length; i++) {
+                    const file = filesData[i];
+                    progressText.textContent = `Parsing ${file.name}...`;
+                    const pct = Math.round(30 + (i / filesData.length) * 70);
+                    progressBar.style.width = `${pct}%`;
+                    progressPercent.textContent = `${pct}%`;
+                    
+                    const parsed = await parseGamesText(file.text, i, filesData.length);
+                    parsed.forEach(addGameToMap);
+                }
             }
+            
             hideProgress();
             updateDataAndRender();
             showToast("Cloud games loaded!");
