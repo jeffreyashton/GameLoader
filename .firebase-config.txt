@@ -1,0 +1,10 @@
+{
+  "projectId": "pandapuzzles-b7ac1",
+  "appId": "1:873623516743:web:fdebd4bb2f27ebb755a362",
+  "storageBucket": "pandapuzzles-b7ac1.firebasestorage.app",
+  "apiKey": "AIzaSyByPHgJMCmGTo98h_l2eDDuRLVoq2NKBC8",
+  "authDomain": "pandapuzzles-b7ac1.firebaseapp.com",
+  "messagingSenderId": "873623516743",
+  "projectNumber": "873623516743",
+  "version": "2"
+}
