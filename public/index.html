@@ -738,7 +738,7 @@
         self.onmessage = function(e) {
             const { text, fileIndex, totalFiles } = e.data;
             
-            let parts = text.split(/\r?\n\s*\r?\n(?=\s*\[)/);
+            let parts = text.split(/\\r?\\n\\s*\\r?\\n(?=\\s*\\[)/);
             let parsedGames = [];
             
             for(let i = 0; i < parts.length; i++) {
