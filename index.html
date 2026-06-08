@@ -19,6 +19,8 @@
         }
     </script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script type="module" src="https://unpkg.com/chessboard-element?module"></script>
     <style>
         .viewport {
             height: calc(100vh - 280px);
@@ -74,6 +76,14 @@
         }
         html.dark ::-webkit-scrollbar-thumb {
             background: #475569;
+        }
+
+        /* Highlighted row */
+        .row-active {
+            background-color: #1e3a8a !important; /* blue-900 */
+        }
+        html:not(.dark) .row-active {
+            background-color: #dbeafe !important; /* blue-100 */
         }
     </style>
 </head>
@@ -139,25 +149,59 @@
         </div>
     </div>
 
-    <!-- Data Table -->
-    <div class="flex-1 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <!-- Header -->
-        <div class="bg-gray-100 dark:bg-gray-900 flex text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-3 shrink-0 border-b border-gray-200 dark:border-gray-700">
-            <div class="w-2/12 px-2">White</div>
-            <div class="w-2/12 px-2">Black</div>
-            <div class="w-1/12 px-2">Result</div>
-            <div class="w-3/12 px-2">Event</div>
-            <div class="w-2/12 px-2">Date</div>
-            <div class="w-2/12 px-2 flex items-center cursor-pointer select-none hover:text-primary transition" id="sortRatingBtn">
-                Rating <i class="ph-bold ph-sort-ascending ml-1 hidden" id="sortIcon"></i>
+    <!-- Main Content Area (Split Screen) -->
+    <div class="flex-1 flex flex-col md:flex-row min-h-0 gap-4 overflow-hidden">
+        
+        <!-- Data Table (Left Panel) -->
+        <div class="flex-1 flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
+            <!-- Header -->
+            <div class="bg-gray-100 dark:bg-gray-900 flex text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-3 shrink-0 border-b border-gray-200 dark:border-gray-700">
+                <div class="w-2/12 px-2">White</div>
+                <div class="w-2/12 px-2">Black</div>
+                <div class="w-1/12 px-2">Result</div>
+                <div class="w-3/12 px-2">Event</div>
+                <div class="w-2/12 px-2">Date</div>
+                <div class="w-2/12 px-2 flex items-center cursor-pointer select-none hover:text-primary transition" id="sortRatingBtn">
+                    Rating <i class="ph-bold ph-sort-ascending ml-1 hidden" id="sortIcon"></i>
+                </div>
+            </div>
+
+            <!-- Virtual Scroller Viewport -->
+            <div id="viewport" class="flex-1 overflow-y-auto relative bg-white dark:bg-gray-800">
+                <div id="spacer" class="w-full"></div>
+                <div id="rowContainer"></div>
             </div>
         </div>
 
-        <!-- Virtual Scroller Viewport -->
-        <div id="viewport" class="flex-1 overflow-y-auto relative bg-white dark:bg-gray-800">
-            <div id="spacer" class="w-full"></div>
-            <div id="rowContainer"></div>
+        <!-- Preview Board (Right Panel) -->
+        <div id="previewPanel" class="hidden w-full md:w-1/3 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+            <!-- Header -->
+            <div class="bg-gray-100 dark:bg-gray-900 p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center shrink-0">
+                <div class="truncate text-sm font-bold text-gray-800 dark:text-gray-200 pr-2">
+                    <span id="previewWhite">White</span> vs <span id="previewBlack">Black</span>
+                </div>
+                <div class="text-xs font-bold text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded whitespace-nowrap" id="previewResult">1-0</div>
+            </div>
+            
+            <!-- Board Area -->
+            <div class="p-4 flex-1 flex flex-col items-center overflow-y-auto">
+                <chess-board id="previewBoard" class="w-full max-w-sm"></chess-board>
+                
+                <!-- Controls -->
+                <div class="flex gap-2 mt-6">
+                    <button id="btnStart" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Start (Shift+Left)"><i class="ph-bold ph-caret-double-left text-xl"></i></button>
+                    <button id="btnPrev" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Previous (Left Arrow)"><i class="ph-bold ph-caret-left text-xl"></i></button>
+                    <button id="btnNext" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="Next (Right Arrow)"><i class="ph-bold ph-caret-right text-xl"></i></button>
+                    <button id="btnEnd" class="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition" title="End (Shift+Right)"><i class="ph-bold ph-caret-double-right text-xl"></i></button>
+                </div>
+
+                <!-- Copy Action -->
+                <button id="btnCopyPgn" class="mt-6 w-full max-w-sm flex justify-center items-center gap-2 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-sm">
+                    <i class="ph-bold ph-copy text-lg"></i> Copy Raw PGN
+                </button>
+            </div>
         </div>
+
     </div>
 
     <!-- Toast Notification -->
@@ -189,6 +233,12 @@
     let filteredGames = [];
     let gameMap = new Map();
     let currentSortRating = 0;
+    
+    // Preview State
+    let activeGameIndex = -1;
+    let previewChess = new Chess();
+    let moveHistory = [];
+    let currentMoveIndex = -1;
 
     // Virtual Scroll State
     const ROW_HEIGHT = 48;
@@ -216,15 +266,17 @@
         for (let i = startIndex; i <= endIndex; i++) {
             const game = filteredGames[i];
             const row = document.createElement('div');
-            row.className = 'table-row-item px-3 flex text-sm text-gray-800 dark:text-gray-200';
+            const isActive = (i === activeGameIndex);
+            
+            row.className = \`table-row-item px-3 flex text-sm \${isActive ? 'row-active text-white' : 'text-gray-800 dark:text-gray-200'}\`;
             row.style.height = \`\${ROW_HEIGHT}px\`;
             row.style.top = \`\${i * ROW_HEIGHT}px\`;
             
             row.addEventListener('click', (e) => {
                 if(e.target.closest('.stars-container')) return;
-                navigator.clipboard.writeText(game.rawPgn).then(() => {
-                    showToast('Raw PGN copied to clipboard!');
-                });
+                activeGameIndex = i;
+                loadPreview(game);
+                renderVirtualScroll();
             });
 
             const savedRating = parseInt(localStorage.getItem('rating_' + game.hash) || '0', 10);
@@ -233,12 +285,12 @@
             row.innerHTML = \`
                 <div class="w-2/12 truncate px-2 font-medium" title="\${game.White}">\${game.White}</div>
                 <div class="w-2/12 truncate px-2 font-medium" title="\${game.Black}">\${game.Black}</div>
-                <div class="w-1/12 truncate px-2 text-gray-500 dark:text-gray-400">\${game.Result}</div>
+                <div class="w-1/12 truncate px-2 \${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">\${game.Result}</div>
                 <div class="w-3/12 truncate px-2" title="\${game.Event}">\${game.Event}</div>
-                <div class="w-2/12 truncate px-2 text-gray-500 dark:text-gray-400">\${game.Date}</div>
+                <div class="w-2/12 truncate px-2 \${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">\${game.Date}</div>
                 <div class="w-2/12 px-2 stars-container flex items-center gap-1" data-hash="\${game.hash}">
                     \${[1,2,3,4,5].map(star => \`
-                        <i class="ph-fill ph-star star text-lg \${star <= savedRating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}" data-val="\${star}"></i>
+                        <i class="ph-fill ph-star star text-lg \${star <= savedRating ? 'text-yellow-400' : (isActive ? 'text-gray-400' : 'text-gray-300 dark:text-gray-600')}" data-val="\${star}"></i>
                     \`).join('')}
                 </div>
             \`;
@@ -270,6 +322,108 @@
 
     window.addEventListener('resize', () => {
         requestAnimationFrame(renderVirtualScroll);
+    });
+
+    // Preview Logic
+    function loadPreview(game) {
+        document.getElementById('previewPanel').classList.remove('hidden');
+        document.getElementById('previewPanel').classList.add('flex'); // override md:hidden behavior if any
+        document.getElementById('previewWhite').textContent = game.White;
+        document.getElementById('previewBlack').textContent = game.Black;
+        document.getElementById('previewResult').textContent = game.Result;
+
+        previewChess.reset();
+        if (previewChess.load_pgn(game.rawPgn)) {
+            moveHistory = previewChess.history();
+        } else if (game.MoveText && previewChess.load_pgn(game.MoveText)) {
+             moveHistory = previewChess.history();
+        } else {
+            // fallback if strictly broken
+            moveHistory = [];
+        }
+        
+        previewChess.reset();
+        currentMoveIndex = -1;
+        updateBoard();
+    }
+
+    function updateBoard() {
+        const board = document.getElementById('previewBoard');
+        board.setPosition(previewChess.fen());
+    }
+
+    function stepMove(dir) {
+        if (dir === -1 && currentMoveIndex >= 0) {
+            previewChess.undo();
+            currentMoveIndex--;
+        } else if (dir === 1 && currentMoveIndex < moveHistory.length - 1) {
+            currentMoveIndex++;
+            previewChess.move(moveHistory[currentMoveIndex]);
+        } else if (dir === -2) {
+            previewChess.reset();
+            currentMoveIndex = -1;
+        } else if (dir === 2) {
+            while(currentMoveIndex < moveHistory.length - 1) {
+                currentMoveIndex++;
+                previewChess.move(moveHistory[currentMoveIndex]);
+            }
+        }
+        updateBoard();
+    }
+
+    document.getElementById('btnPrev').addEventListener('click', () => stepMove(-1));
+    document.getElementById('btnNext').addEventListener('click', () => stepMove(1));
+    document.getElementById('btnStart').addEventListener('click', () => stepMove(-2));
+    document.getElementById('btnEnd').addEventListener('click', () => stepMove(2));
+
+    document.getElementById('btnCopyPgn').addEventListener('click', () => {
+        if(activeGameIndex >= 0 && filteredGames[activeGameIndex]) {
+            navigator.clipboard.writeText(filteredGames[activeGameIndex].rawPgn).then(() => {
+                showToast('Raw PGN copied to clipboard!');
+            });
+        }
+    });
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', (e) => {
+        // Ignore if user is typing in search
+        if(e.target.tagName === 'INPUT') return;
+
+        if (!document.getElementById('previewPanel').classList.contains('hidden')) {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                stepMove(e.shiftKey ? -2 : -1);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                stepMove(e.shiftKey ? 2 : 1);
+            }
+        }
+
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (activeGameIndex > 0) {
+                activeGameIndex--;
+                loadPreview(filteredGames[activeGameIndex]);
+                // Ensure row is in view
+                const rowTop = activeGameIndex * ROW_HEIGHT;
+                if (rowTop < viewport.scrollTop) {
+                    viewport.scrollTop = rowTop;
+                }
+                renderVirtualScroll();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (activeGameIndex < filteredGames.length - 1) {
+                activeGameIndex++;
+                loadPreview(filteredGames[activeGameIndex]);
+                // Ensure row is in view
+                const rowBottom = (activeGameIndex + 1) * ROW_HEIGHT;
+                if (rowBottom > viewport.scrollTop + viewport.clientHeight) {
+                    viewport.scrollTop = rowBottom - viewport.clientHeight;
+                }
+                renderVirtualScroll();
+            }
+        }
     });
 
     const workerCode = \`
@@ -394,6 +548,8 @@
     function updateDataAndRender() {
         filteredGames = Array.from(gameMap.values());
         document.getElementById('gameCount').textContent = filteredGames.length;
+        activeGameIndex = -1;
+        document.getElementById('previewPanel').classList.add('hidden');
         applySearchAndSort();
     }
 
