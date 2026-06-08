@@ -301,6 +301,13 @@
             </div>
 
         </div>
+        
+        <!-- Footer / Global Match controls -->
+        <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex justify-center shrink-0">
+            <button id="btnDraw" class="px-8 py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition flex items-center gap-2 shadow-md">
+                <i class="ph-bold ph-handshake text-xl"></i> Declare Draw
+            </button>
+        </div>
     </div>
 
     <!-- Toast Notification -->
@@ -700,26 +707,38 @@
         const hashA = tourneyGameA.hash;
         const hashB = tourneyGameB.hash;
         
-        if (winnerSide === 'A') {
+        if (winnerSide === 'draw') {
+            localStorage.setItem('rating_' + hashA, 3);
+            localStorage.setItem('rating_' + hashB, 3);
+            tourneyGameA.rating = 3;
+            tourneyGameB.rating = 3;
+            if (window.syncRatingToCloud) { 
+                window.syncRatingToCloud(hashA, 3); 
+                window.syncRatingToCloud(hashB, 3); 
+            }
+            showToast(`Ranked! Draw, both games got 3 stars.`);
+        } else if (winnerSide === 'A') {
             localStorage.setItem('rating_' + hashA, 4);
             localStorage.setItem('rating_' + hashB, 2);
             tourneyGameA.rating = 4;
             tourneyGameB.rating = 2;
             if (window.syncRatingToCloud) { window.syncRatingToCloud(hashA, 4); window.syncRatingToCloud(hashB, 2); }
+            showToast(`Ranked! Winner got 4 stars, loser got 2 stars.`);
         } else {
             localStorage.setItem('rating_' + hashB, 4);
             localStorage.setItem('rating_' + hashA, 2);
             tourneyGameB.rating = 4;
             tourneyGameA.rating = 2;
             if (window.syncRatingToCloud) { window.syncRatingToCloud(hashB, 4); window.syncRatingToCloud(hashA, 2); }
+            showToast(`Ranked! Winner got 4 stars, loser got 2 stars.`);
         }
 
-        showToast(`Ranked! Winner got 4 stars, loser got 2 stars.`);
         startTournamentRound();
     }
 
     document.getElementById('btnWinA').addEventListener('click', () => selectWinner('A'));
     document.getElementById('btnWinB').addEventListener('click', () => selectWinner('B'));
+    document.getElementById('btnDraw').addEventListener('click', () => selectWinner('draw'));
 
     // PGN Parsing Web Worker
     const workerCode = `
