@@ -385,7 +385,7 @@
         const viewportHeight = viewport.clientHeight;
         
         const totalRows = filteredGames.length;
-        spacer.style.height = \`\${totalRows * ROW_HEIGHT}px\`;
+        spacer.style.height = `${totalRows * ROW_HEIGHT}px`;
         
         const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5);
         const endIndex = Math.min(totalRows - 1, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + 5);
@@ -402,9 +402,9 @@
             const row = document.createElement('div');
             const isActive = (i === activeGameIndex);
             
-            row.className = \`table-row-item px-3 flex text-sm \${isActive ? 'row-active text-white' : 'text-gray-800 dark:text-gray-200'}\`;
-            row.style.height = \`\${ROW_HEIGHT}px\`;
-            row.style.top = \`\${i * ROW_HEIGHT}px\`;
+            row.className = `table-row-item px-3 flex text-sm ${isActive ? 'row-active text-white' : 'text-gray-800 dark:text-gray-200'}`;
+            row.style.height = `${ROW_HEIGHT}px`;
+            row.style.top = `${i * ROW_HEIGHT}px`;
             
             row.addEventListener('click', (e) => {
                 if(e.target.closest('.stars-container')) return;
@@ -416,18 +416,18 @@
             const savedRating = parseInt(localStorage.getItem('rating_' + game.hash) || '0', 10);
             game.rating = savedRating;
 
-            row.innerHTML = \`
-                <div class="w-2/12 truncate px-2 font-medium" title="\${game.White}">\${game.White}</div>
-                <div class="w-2/12 truncate px-2 font-medium" title="\${game.Black}">\${game.Black}</div>
-                <div class="w-1/12 truncate px-2 \${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">\${game.Result}</div>
-                <div class="w-3/12 truncate px-2" title="\${game.Event}">\${game.Event}</div>
-                <div class="w-2/12 truncate px-2 \${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">\${game.Date}</div>
-                <div class="w-2/12 px-2 stars-container flex items-center gap-1" data-hash="\${game.hash}">
-                    \${[1,2,3,4,5].map(star => \`
-                        <i class="ph-fill ph-star star text-lg \${star <= savedRating ? 'text-yellow-400' : (isActive ? 'text-gray-400' : 'text-gray-300 dark:text-gray-600')}" data-val="\${star}"></i>
-                    \`).join('')}
+            row.innerHTML = `
+                <div class="w-2/12 truncate px-2 font-medium" title="${game.White}">${game.White}</div>
+                <div class="w-2/12 truncate px-2 font-medium" title="${game.Black}">${game.Black}</div>
+                <div class="w-1/12 truncate px-2 ${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">${game.Result}</div>
+                <div class="w-3/12 truncate px-2" title="${game.Event}">${game.Event}</div>
+                <div class="w-2/12 truncate px-2 ${isActive ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">${game.Date}</div>
+                <div class="w-2/12 px-2 stars-container flex items-center gap-1" data-hash="${game.hash}">
+                    ${[1,2,3,4,5].map(star => `
+                        <i class="ph-fill ph-star star text-lg ${star <= savedRating ? 'text-yellow-400' : (isActive ? 'text-gray-400' : 'text-gray-300 dark:text-gray-600')}" data-val="${star}"></i>
+                    `).join('')}
                 </div>
-            \`;
+            `;
             
             const stars = row.querySelectorAll('.star');
             stars.forEach(starEl => {
@@ -610,7 +610,7 @@
         tourneyGameB = unranked[r2];
 
         // Setup A
-        document.getElementById('tourneyWhiteA').textContent = \`\${tourneyGameA.White} vs \${tourneyGameA.Black}\`;
+        document.getElementById('tourneyWhiteA').textContent = `${tourneyGameA.White} vs ${tourneyGameA.Black}`;
         document.getElementById('tourneyEventA').textContent = tourneyGameA.Event || 'Unknown Event';
         tourneyChessA.reset();
         if (tourneyChessA.load_pgn(tourneyGameA.rawPgn) || (tourneyGameA.MoveText && tourneyChessA.load_pgn(tourneyGameA.MoveText))) {
@@ -621,7 +621,7 @@
         document.getElementById('boardA').setPosition(tourneyChessA.fen());
 
         // Setup B
-        document.getElementById('tourneyWhiteB').textContent = \`\${tourneyGameB.White} vs \${tourneyGameB.Black}\`;
+        document.getElementById('tourneyWhiteB').textContent = `${tourneyGameB.White} vs ${tourneyGameB.Black}`;
         document.getElementById('tourneyEventB').textContent = tourneyGameB.Event || 'Unknown Event';
         tourneyChessB.reset();
         if (tourneyChessB.load_pgn(tourneyGameB.rawPgn) || (tourneyGameB.MoveText && tourneyChessB.load_pgn(tourneyGameB.MoveText))) {
@@ -720,7 +720,7 @@
     document.getElementById('btnWinB').addEventListener('click', () => selectWinner('B'));
 
     // PGN Parsing Web Worker
-    const workerCode = \`
+    const workerCode = `
         const cyrb53 = (str, seed = 0) => {
             let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
             for(let i = 0, ch; i < str.length; i++) {
@@ -779,7 +779,7 @@
             
             self.postMessage({ type: 'done', games: parsedGames, fileIndex, totalFiles });
         };
-    \`;
+    `;
 
     const blob = new Blob([workerCode], {type: 'application/javascript'});
     let worker;
@@ -813,7 +813,7 @@
         progressBar.style.width = percent + '%';
         progressPercent.textContent = Math.round(percent) + '%';
         if(totalFiles > 1) {
-            progressText.textContent = \`Parsing file \${fileIndex + 1} of \${totalFiles}...\`;
+            progressText.textContent = `Parsing file ${fileIndex + 1} of ${totalFiles}...`;
         } else {
             progressText.textContent = 'Parsing games...';
         }
