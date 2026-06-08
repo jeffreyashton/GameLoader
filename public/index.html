@@ -619,8 +619,9 @@
         tourneyGameB = unranked[r2];
 
         // Setup A
+        const eloA = parseInt(localStorage.getItem('elo_' + tourneyGameA.hash) || '1500', 10);
         document.getElementById('tourneyWhiteA').textContent = `${tourneyGameA.White} vs ${tourneyGameA.Black}`;
-        document.getElementById('tourneyEventA').textContent = tourneyGameA.Event || 'Unknown Event';
+        document.getElementById('tourneyEventA').textContent = `${tourneyGameA.Event || 'Unknown Event'} (Elo: ${eloA})`;
         tourneyChessA.reset();
         if (tourneyChessA.load_pgn(tourneyGameA.rawPgn) || (tourneyGameA.MoveText && tourneyChessA.load_pgn(tourneyGameA.MoveText))) {
             historyA = tourneyChessA.history();
@@ -630,8 +631,9 @@
         document.getElementById('boardA').setPosition(tourneyChessA.fen());
 
         // Setup B
+        const eloB = parseInt(localStorage.getItem('elo_' + tourneyGameB.hash) || '1500', 10);
         document.getElementById('tourneyWhiteB').textContent = `${tourneyGameB.White} vs ${tourneyGameB.Black}`;
-        document.getElementById('tourneyEventB').textContent = tourneyGameB.Event || 'Unknown Event';
+        document.getElementById('tourneyEventB').textContent = `${tourneyGameB.Event || 'Unknown Event'} (Elo: ${eloB})`;
         tourneyChessB.reset();
         if (tourneyChessB.load_pgn(tourneyGameB.rawPgn) || (tourneyGameB.MoveText && tourneyChessB.load_pgn(tourneyGameB.MoveText))) {
             historyB = tourneyChessB.history();
@@ -707,32 +709,64 @@
         const hashA = tourneyGameA.hash;
         const hashB = tourneyGameB.hash;
         
+        const eloA = parseInt(localStorage.getItem('elo_' + hashA) || '1500', 10);
+        const eloB = parseInt(localStorage.getItem('elo_' + hashB) || '1500', 10);
+        
+        // Calculate expected scores
+        const expectedA = 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+        const expectedB = 1 / (1 + Math.pow(10, (eloA - eloB) / 400));
+        
+        let actualA, actualB;
+        let ratingA, ratingB;
+        let toastMsg = "";
+        
         if (winnerSide === 'draw') {
-            localStorage.setItem('rating_' + hashA, 3);
-            localStorage.setItem('rating_' + hashB, 3);
-            tourneyGameA.rating = 3;
-            tourneyGameB.rating = 3;
-            if (window.syncRatingToCloud) { 
-                window.syncRatingToCloud(hashA, 3); 
-                window.syncRatingToCloud(hashB, 3); 
-            }
-            showToast(`Ranked! Draw, both games got 3 stars.`);
+            actualA = 0.5;
+            actualB = 0.5;
+            ratingA = 3;
+            ratingB = 3;
+            toastMsg = "Draw declared!";
         } else if (winnerSide === 'A') {
-            localStorage.setItem('rating_' + hashA, 4);
-            localStorage.setItem('rating_' + hashB, 2);
-            tourneyGameA.rating = 4;
-            tourneyGameB.rating = 2;
-            if (window.syncRatingToCloud) { window.syncRatingToCloud(hashA, 4); window.syncRatingToCloud(hashB, 2); }
-            showToast(`Ranked! Winner got 4 stars, loser got 2 stars.`);
+            actualA = 1;
+            actualB = 0;
+            ratingA = 4;
+            ratingB = 2;
+            toastMsg = `${tourneyGameA.White || 'White'} won!`;
         } else {
-            localStorage.setItem('rating_' + hashB, 4);
-            localStorage.setItem('rating_' + hashA, 2);
-            tourneyGameB.rating = 4;
-            tourneyGameA.rating = 2;
-            if (window.syncRatingToCloud) { window.syncRatingToCloud(hashB, 4); window.syncRatingToCloud(hashA, 2); }
-            showToast(`Ranked! Winner got 4 stars, loser got 2 stars.`);
+            actualA = 0;
+            actualB = 1;
+            ratingA = 2;
+            ratingB = 4;
+            toastMsg = `${tourneyGameB.White || 'White'} won!`;
         }
-
+        
+        const kFactor = 32;
+        const newEloA = Math.round(eloA + kFactor * (actualA - expectedA));
+        const newEloB = Math.round(eloB + kFactor * (actualB - expectedB));
+        
+        // Save to localStorage
+        localStorage.setItem('rating_' + hashA, ratingA);
+        localStorage.setItem('rating_' + hashB, ratingB);
+        localStorage.setItem('elo_' + hashA, newEloA);
+        localStorage.setItem('elo_' + hashB, newEloB);
+        
+        // Save in-memory
+        tourneyGameA.rating = ratingA;
+        tourneyGameB.rating = ratingB;
+        tourneyGameA.elo = newEloA;
+        tourneyGameB.elo = newEloB;
+        
+        // Update rawPgn headers
+        tourneyGameA.rawPgn = updatePgnHeader(tourneyGameA.rawPgn, 'MetaElo', newEloA);
+        tourneyGameB.rawPgn = updatePgnHeader(tourneyGameB.rawPgn, 'MetaElo', newEloB);
+        
+        // Sync to cloud
+        if (window.syncRatingToCloud) {
+            window.syncRatingToCloud(hashA, ratingA, newEloA);
+            window.syncRatingToCloud(hashB, ratingB, newEloB);
+        }
+        
+        showToast(`${toastMsg} New Elo -> A: ${newEloA} (${newEloA >= eloA ? '+' : ''}${newEloA - eloA}), B: ${newEloB} (${newEloB >= eloB ? '+' : ''}${newEloB - eloB})`);
         startTournamentRound();
     }
 
@@ -776,6 +810,7 @@
                 const Result = getHeader('Result');
                 const Date = getHeader('Date');
                 const Event = getHeader('Event');
+                const MetaElo = getHeader('MetaElo');
 
                 const lastHeaderClose = chunk.lastIndexOf(']');
                 let MoveText = '';
@@ -787,7 +822,7 @@
                 const hash = cyrb53(hashStr).toString(16);
 
                 parsedGames.push({
-                    White, Black, Result, Date, Event,
+                    White, Black, Result, Date, Event, MetaElo,
                     MoveText,
                     rawPgn: chunk,
                     hash
@@ -864,6 +899,34 @@
         applySearchAndSort();
     }
 
+    function updatePgnHeader(rawPgn, headerName, value) {
+        const headerRegex = new RegExp('\\\\[' + headerName + '\\\\s+"[^"]*"\\\\]', 'i');
+        const newHeader = `[${headerName} "${value}"]`;
+        if (headerRegex.test(rawPgn)) {
+            return rawPgn.replace(headerRegex, newHeader);
+        } else {
+            return newHeader + "\n" + rawPgn;
+        }
+    }
+
+    function addGameToMap(g) {
+        if(!gameMap.has(g.hash)) {
+            gameMap.set(g.hash, g);
+        }
+        const existing = gameMap.get(g.hash);
+        if (g.MetaElo && g.MetaElo !== '?') {
+            localStorage.setItem('elo_' + g.hash, g.MetaElo);
+            existing.elo = parseInt(g.MetaElo, 10);
+            existing.rawPgn = updatePgnHeader(existing.rawPgn, 'MetaElo', g.MetaElo);
+        } else {
+            const localElo = localStorage.getItem('elo_' + g.hash);
+            if (localElo) {
+                existing.elo = parseInt(localElo, 10);
+                existing.rawPgn = updatePgnHeader(existing.rawPgn, 'MetaElo', localElo);
+            }
+        }
+    }
+
     document.getElementById('fileInput').addEventListener('change', async (e) => {
         const files = e.target.files;
         if (!files.length) return;
@@ -878,11 +941,7 @@
             try {
                 updateProgress(0, i, files.length);
                 const parsed = await parseGamesText(text, i, files.length);
-                parsed.forEach(g => {
-                    if(!gameMap.has(g.hash)) {
-                        gameMap.set(g.hash, g);
-                    }
-                });
+                parsed.forEach(addGameToMap);
             } catch (err) {
                 console.error("Error parsing file", file.name, err);
             }
@@ -940,11 +999,7 @@
             
             progressText.textContent = "Parsing Lichess study...";
             const parsed = await parseGamesText(text, 0, 1);
-            parsed.forEach(g => {
-                if(!gameMap.has(g.hash)) {
-                    gameMap.set(g.hash, g);
-                }
-            });
+            parsed.forEach(addGameToMap);
             
             hideProgress();
             updateDataAndRender();
@@ -1096,10 +1151,13 @@
         }
     });
 
-    window.syncRatingToCloud = (hash, rating) => {
+    window.syncRatingToCloud = (hash, rating, elo) => {
         if(!currentUser || !window.firebaseDb) return;
         const dRef = window.doc(window.firebaseDb, 'users', currentUser.uid, 'ratings', hash);
-        window.setDoc(dRef, { rating }, { merge: true }).catch(console.error);
+        const data = {};
+        if (rating !== undefined) data.rating = rating;
+        if (elo !== undefined) data.elo = elo;
+        window.setDoc(dRef, data, { merge: true }).catch(console.error);
     };
 
     document.getElementById('cloudUploadInput').addEventListener('change', async (e) => {
@@ -1152,11 +1210,7 @@
                 
                 progressText.textContent = `Parsing ${itemRef.name}...`;
                 const parsed = await parseGamesText(text, i, res.items.length);
-                parsed.forEach(g => {
-                    if(!gameMap.has(g.hash)) {
-                        gameMap.set(g.hash, g);
-                    }
-                });
+                parsed.forEach(addGameToMap);
             }
             hideProgress();
             updateDataAndRender();
