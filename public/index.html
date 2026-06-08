@@ -161,7 +161,11 @@
                 </button>
             </div>
             
-            <div id="cloudOptions" class="hidden flex-1 flex flex-col">
+            <p id="cloudDescription" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Sign in with Google to backup your PGN files and synchronize your game ratings across devices.
+            </p>
+            
+            <div id="cloudOptions" class="hidden flex-1 flex flex-col mt-2">
                 <div class="flex gap-2">
                     <label class="flex-1 py-1.5 bg-blue-50 text-blue-700 font-bold rounded hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-400 dark:hover:bg-gray-600 cursor-pointer transition text-center text-xs flex justify-center items-center gap-1">
                         <i class="ph-bold ph-cloud-arrow-up text-sm"></i> Upload PGN
@@ -734,19 +738,15 @@
         self.onmessage = function(e) {
             const { text, fileIndex, totalFiles } = e.data;
             
-            let parts = text.split(/\\\\[Event \\"/);
+            let parts = text.split(/\r?\n\s*\r?\n(?=\s*\[)/);
             let parsedGames = [];
             
             for(let i = 0; i < parts.length; i++) {
-                if(i === 0 && parts[i].trim() === '') continue;
-                
                 let chunk = parts[i].trim();
                 if(!chunk) continue;
-                
-                chunk = '[Event "' + chunk;
 
                 const getHeader = (name) => {
-                    const match = chunk.match(new RegExp('\\\\\\\\[' + name + ' \\\\"(.*?)\\\\"\\\\]'));
+                    const match = chunk.match(new RegExp('\\\\[' + name + '\\\\s+"([^"]*)"\\\\]', 'i'));
                     return match ? match[1] : '?';
                 };
 
@@ -1001,12 +1001,17 @@
     // Firebase Integration
     let currentUser = null;
 
-    window.addEventListener('firebaseReady', () => {
+    const cloudDesc = document.getElementById('cloudDescription');
+    const cloudOpts = document.getElementById('cloudOptions');
+
+    function initFirebase() {
+        if (!window.firebaseAuth) return;
         window.onAuthStateChanged(window.firebaseAuth, async (user) => {
             currentUser = user;
             if (user) {
                 document.getElementById('loginBtn').innerHTML = `<img src="${user.photoURL || 'https://www.gravatar.com/avatar/?d=mp'}" class="w-5 h-5 rounded-full inline-block"> Sign Out`;
-                document.getElementById('cloudOptions').classList.remove('hidden');
+                cloudOpts.classList.remove('hidden');
+                cloudDesc.classList.add('hidden');
                 
                 // Fetch user ratings
                 try {
@@ -1025,13 +1030,23 @@
                 } catch(e) { console.error("Error fetching ratings", e); }
             } else {
                 document.getElementById('loginBtn').innerHTML = `<i class="ph-bold ph-user text-lg"></i> Sign In`;
-                document.getElementById('cloudOptions').classList.add('hidden');
+                cloudOpts.classList.add('hidden');
+                cloudDesc.classList.remove('hidden');
             }
         });
-    });
+    }
+
+    if (window.firebaseAuth) {
+        initFirebase();
+    } else {
+        window.addEventListener('firebaseReady', initFirebase);
+    }
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
-        if (!window.firebaseAuth) return;
+        if (!window.firebaseAuth) {
+            alert("Firebase is still loading. Please wait a moment.");
+            return;
+        }
         if (currentUser) {
             await window.signOut(window.firebaseAuth);
         } else {
