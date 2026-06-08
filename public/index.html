@@ -469,11 +469,16 @@
                     if (game.rating === val) {
                         game.rating = 0;
                         localStorage.removeItem('rating_' + hash);
+                        game.rawPgn = updatePgnHeader(game.rawPgn, 'Rating', '0');
                     } else {
                         game.rating = val;
                         localStorage.setItem('rating_' + hash, val);
+                        game.rawPgn = updatePgnHeader(game.rawPgn, 'Rating', val);
                     }
                     if (window.syncRatingToCloud) window.syncRatingToCloud(hash, game.rating);
+                    if (typeof currentUser !== 'undefined' && currentUser) {
+                        autoSaveToCloud();
+                    }
                     renderVirtualScroll(); // Quick re-render
                 });
             });
@@ -633,12 +638,16 @@
             return;
         }
 
-        const r1 = Math.floor(Math.random() * unranked.length);
-        let r2 = Math.floor(Math.random() * unranked.length);
-        while (r1 === r2) r2 = Math.floor(Math.random() * unranked.length);
+        // Prioritize matchmaking games with real names (not generated ones)
+        let unrankedWithRealNames = unranked.filter(g => !g.wasAnonymous);
+        let pool = unrankedWithRealNames.length >= 2 ? unrankedWithRealNames : unranked;
 
-        tourneyGameA = unranked[r1];
-        tourneyGameB = unranked[r2];
+        const r1 = Math.floor(Math.random() * pool.length);
+        let r2 = Math.floor(Math.random() * pool.length);
+        while (r1 === r2) r2 = Math.floor(Math.random() * pool.length);
+
+        tourneyGameA = pool[r1];
+        tourneyGameB = pool[r2];
 
         // Setup A
         const eloA = parseInt(localStorage.getItem('elo_' + tourneyGameA.hash) || '1500', 10);
@@ -789,6 +798,9 @@
         }
         
         showToast(`${toastMsg} New Elo -> A: ${newEloA} (${newEloA >= eloA ? '+' : ''}${newEloA - eloA}), B: ${newEloB} (${newEloB >= eloB ? '+' : ''}${newEloB - eloB})`);
+        if (currentUser) {
+            autoSaveToCloud();
+        }
         startTournamentRound();
     }
 
@@ -822,13 +834,48 @@
                 let chunk = parts[i].trim();
                 if(!chunk) continue;
 
-                const getHeader = (name) => {
+                 const getHeader = (name) => {
                     const match = chunk.match(new RegExp('\\\\[' + name + '\\\\s+"([^"]*)"\\\\]', 'i'));
                     return match ? match[1] : '?';
                 };
 
-                const White = getHeader('White');
-                const Black = getHeader('Black');
+                const updatePgnHeader = (pgn, name, val) => {
+                    const regex = new RegExp('\\\\[' + name + '\\\\s+"[^"]*"\\\\]', 'i');
+                    if (regex.test(pgn)) {
+                        return pgn.replace(regex, '[' + name + ' "' + val + '"]');
+                    } else {
+                        return '[' + name + ' "' + val + '"]\n' + pgn;
+                    }
+                };
+
+                const firstNames = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen"];
+                const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin"];
+                
+                const getRandomName = () => {
+                    const f = firstNames[Math.floor(Math.random() * firstNames.length)];
+                    const l = lastNames[Math.floor(Math.random() * lastNames.length)];
+                    return f + " " + l;
+                };
+
+                let White = getHeader('White');
+                let Black = getHeader('Black');
+                let wasAnonymous = false;
+
+                const isAnon = (name) => {
+                    return !name || name === '?' || name.toLowerCase() === 'anonymous' || name.toLowerCase() === 'unknown' || !name.trim();
+                };
+
+                if (isAnon(White)) {
+                    White = getRandomName();
+                    wasAnonymous = true;
+                    chunk = updatePgnHeader(chunk, 'White', White);
+                }
+                if (isAnon(Black)) {
+                    Black = getRandomName();
+                    wasAnonymous = true;
+                    chunk = updatePgnHeader(chunk, 'Black', Black);
+                }
+
                 const Result = getHeader('Result');
                 const Date = getHeader('Date');
                 const Event = getHeader('Event');
@@ -847,7 +894,8 @@
                     White, Black, Result, Date, Event, MetaElo,
                     MoveText,
                     rawPgn: chunk,
-                    hash
+                    hash,
+                    wasAnonymous
                 });
 
                 if (i % 5000 === 0 && i > 0) {
@@ -936,6 +984,9 @@
             gameMap.set(g.hash, g);
         }
         const existing = gameMap.get(g.hash);
+        if (g.wasAnonymous) {
+            existing.wasAnonymous = true;
+        }
         if (g.MetaElo && g.MetaElo !== '?') {
             localStorage.setItem('elo_' + g.hash, g.MetaElo);
             existing.elo = parseInt(g.MetaElo, 10);
@@ -972,6 +1023,9 @@
         hideProgress();
         updateDataAndRender();
         e.target.value = ''; 
+        if (currentUser) {
+            await autoSaveToCloud();
+        }
     });
 
     document.getElementById('importLichessBtn').addEventListener('click', async () => {
@@ -1026,6 +1080,9 @@
             hideProgress();
             updateDataAndRender();
             document.getElementById('lichessUrl').value = ''; 
+            if (currentUser) {
+                await autoSaveToCloud();
+            }
         } catch(err) {
             console.error(err);
             alert("Error fetching Lichess study: " + err.message);
@@ -1173,6 +1230,9 @@
             hideProgress();
             updateDataAndRender();
             showToast(`Successfully synced ${importedCount} of ${matchingStudies.length} studies.`);
+            if (currentUser) {
+                await autoSaveToCloud();
+            }
         } catch (err) {
             console.error(err);
             alert("Lichess sync failed: " + err.message);
@@ -1243,6 +1303,21 @@
     // Initial render
     renderVirtualScroll();
 
+    async function autoSaveToCloud() {
+        if (!currentUser || !window.firebaseStorage) return;
+        const pgnText = Array.from(gameMap.values()).map(g => g.rawPgn).join('\n\n');
+        if (!pgnText.trim()) return;
+        const blob = new Blob([pgnText], { type: 'text/plain' });
+        const sRef = window.storageRef(window.firebaseStorage, `users/${currentUser.uid}/pgns/all_games.pgn`);
+        try {
+            console.log("Auto-saving PGN list to cloud storage...");
+            await window.uploadBytesResumable(sRef, blob);
+            showToast("PGN list auto-saved to cloud!");
+        } catch (e) {
+            console.error("Auto-save failed:", e);
+        }
+    }
+
     // Firebase Integration
     let currentUser = null;
 
@@ -1282,6 +1357,8 @@
                         }
                     });
                     if(modified) updateDataAndRender();
+                    // Auto-load games from cloud storage on sign-in
+                    await loadGamesFromCloud(false);
                 } catch(e) { console.error("Error fetching ratings", e); }
             } else {
                 document.getElementById('loginBtn').innerHTML = `<i class="ph-bold ph-user text-lg"></i> Sign In`;
@@ -1352,8 +1429,8 @@
         e.target.value = '';
     });
 
-    document.getElementById('btnLoadCloud').addEventListener('click', async () => {
-        if(!currentUser) return;
+    async function loadGamesFromCloud(showAlertIfEmpty = true) {
+        if(!currentUser || !window.firebaseStorage) return;
         progressContainer.classList.remove('hidden');
         progressText.textContent = "Listing Cloud PGNs...";
         progressBar.style.width = '10%';
@@ -1363,7 +1440,9 @@
             const listRef = window.storageRef(window.firebaseStorage, `users/${currentUser.uid}/pgns`);
             const res = await window.listAll(listRef);
             if(res.items.length === 0) {
-                alert("No PGNs found in your cloud storage.");
+                if (showAlertIfEmpty) {
+                    alert("No PGNs found in your cloud storage.");
+                }
                 hideProgress();
                 return;
             }
@@ -1385,9 +1464,16 @@
             updateDataAndRender();
             showToast("Cloud games loaded!");
         } catch(e) {
-            alert("Error loading from cloud: " + e.message);
+            console.error("Error loading from cloud:", e);
+            if (showAlertIfEmpty) {
+                alert("Error loading from cloud: " + e.message);
+            }
             hideProgress();
         }
+    }
+
+    document.getElementById('btnLoadCloud').addEventListener('click', () => {
+        loadGamesFromCloud(true);
     });
 
 </script>
