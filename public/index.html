@@ -849,14 +849,32 @@
         const urlInput = document.getElementById('lichessUrl').value.trim();
         if(!urlInput) return;
         
-        const match = urlInput.match(/study\\/([a-zA-Z0-9]+)/);
-        if(!match) {
-            alert("Invalid Lichess study URL");
-            return;
+        let studyId = null;
+        let match = urlInput.match(/study\/([a-zA-Z0-9]+)/);
+        
+        if (match) {
+            studyId = match[1];
+        } else {
+            progressContainer.classList.remove('hidden');
+            progressText.textContent = "Resolving link...";
+            try {
+                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(urlInput);
+                const res = await fetch(proxyUrl);
+                const html = await res.text();
+                const proxyMatch = html.match(/lichess\.org\/study\/([a-zA-Z0-9]{8})/i);
+                if (proxyMatch) {
+                    studyId = proxyMatch[1];
+                } else {
+                    throw new Error("Could not find a Lichess study at that link.");
+                }
+            } catch (err) {
+                alert("Invalid Lichess study URL or unsupported link shortener.");
+                hideProgress();
+                return;
+            }
         }
         
-        const studyId = match[1];
-        const apiUrl = \`https://lichess.org/api/study/\${studyId}.pgn\`;
+        const apiUrl = `https://lichess.org/api/study/${studyId}.pgn`;
         
         progressContainer.classList.remove('hidden');
         progressText.textContent = "Downloading from Lichess...";
