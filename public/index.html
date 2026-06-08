@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameLoader</title>
+    <script>
+        // Early theme detection to prevent flash
+        if (localStorage.theme === 'light' || (!('theme' in localStorage) && !window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -22,6 +30,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script type="module" src="https://unpkg.com/chessboard-element?module"></script>
     <style>
+        /* Custom Chessboard Styling matching dark/light themes */
+        chess-board {
+            --light-color: #f2dcb6;
+            --dark-color: #b58863;
+            border: 4px solid #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+        }
+        
+        html.dark chess-board {
+            --light-color: #384252; /* Sleek dark theme light squares */
+            --dark-color: #1e293b;  /* Sleek dark theme dark squares */
+            --highlight-color: rgba(59, 130, 246, 0.4); /* Sleek blue highlight in dark mode */
+            border-color: #334155;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
         .viewport {
             height: calc(100vh - 280px);
             min-height: 400px;
@@ -94,9 +121,9 @@
         <h1 class="text-3xl font-bold flex items-center gap-2">
             <i class="ph-fill ph-chess-knight text-primary"></i> GameLoader
         </h1>
-        <button id="themeToggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition">
-            <i class="ph-fill ph-sun text-2xl dark:hidden block text-yellow-500"></i>
-            <i class="ph-fill ph-moon text-2xl hidden dark:block text-blue-300"></i>
+        <button id="themeToggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition" title="Toggle Theme">
+            <i class="ph-fill ph-moon text-2xl dark:hidden block text-slate-700"></i>
+            <i class="ph-fill ph-sun text-2xl hidden dark:block text-yellow-400"></i>
         </button>
     </div>
 
