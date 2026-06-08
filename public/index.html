@@ -858,7 +858,11 @@
             progressContainer.classList.remove('hidden');
             progressText.textContent = "Resolving link...";
             try {
-                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(urlInput);
+                let urlToFetch = urlInput;
+                if (!/^https?:\/\//i.test(urlToFetch)) {
+                    urlToFetch = "https://" + urlToFetch;
+                }
+                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(urlToFetch);
                 const res = await fetch(proxyUrl);
                 const html = await res.text();
                 const proxyMatch = html.match(/lichess\.org\/study\/([a-zA-Z0-9]{8})/i);
