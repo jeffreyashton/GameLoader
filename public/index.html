@@ -312,7 +312,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { getStorage, ref, uploadBytesResumable, getDownloadURL, listAll, getBytes } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
@@ -331,6 +331,8 @@
     window.firebaseStorage = getStorage(app);
     window.GoogleAuthProvider = GoogleAuthProvider;
     window.signInWithPopup = signInWithPopup;
+    window.signInWithRedirect = signInWithRedirect;
+    window.getRedirectResult = getRedirectResult;
     window.signOut = signOut;
     window.onAuthStateChanged = onAuthStateChanged;
     window.doc = doc;
@@ -1006,6 +1008,16 @@
 
     function initFirebase() {
         if (!window.firebaseAuth) return;
+        
+        // Handle redirect result if user just returned from Google login redirect
+        if (window.getRedirectResult) {
+            window.getRedirectResult(window.firebaseAuth)
+                .catch((e) => {
+                    console.error("Redirect sign-in failed", e);
+                    alert("Sign-in failed: " + e.message);
+                });
+        }
+
         window.onAuthStateChanged(window.firebaseAuth, async (user) => {
             currentUser = user;
             if (user) {
@@ -1051,8 +1063,16 @@
             await window.signOut(window.firebaseAuth);
         } else {
             const provider = new window.GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: 'select_account' });
+            
             try {
-                await window.signInWithPopup(window.firebaseAuth, provider);
+                // Detect mobile platforms: iOS (iPhone, iPad, iPod) and Android
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile && window.signInWithRedirect) {
+                    await window.signInWithRedirect(window.firebaseAuth, provider);
+                } else {
+                    await window.signInWithPopup(window.firebaseAuth, provider);
+                }
             } catch(e) { alert("Sign-in failed: " + e.message); }
         }
     });
